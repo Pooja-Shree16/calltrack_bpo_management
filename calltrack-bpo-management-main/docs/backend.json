@@ -1,0 +1,43 @@
+
+{
+  "entities": {
+    "CallRecord": {
+      "title": "CallRecord",
+      "description": "Represents a call record in the BPO Call Center System.",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string" },
+        "issue": { "type": "string" },
+        "assignedAgent": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "In Progress", "Completed"] },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerName", "issue", "status", "userId", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["Admin", "User"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role", "createdAt"]
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/callRecords/{recordId}": {
+      "schema": "CallRecord",
+      "description": "Stores all call center records."
+    },
+    "/userProfiles/{userId}": {
+      "schema": "UserProfile",
+      "description": "Stores user roles and profiles."
+    }
+  }
+}

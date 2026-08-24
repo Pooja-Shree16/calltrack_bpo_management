@@ -1,0 +1,170 @@
+
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { PhoneCall, Mail, Lock, Loader2, UserPlus, AlertCircle } from "lucide-react"
+import { useAuth, useFirestore, useUser } from "@/firebase"
+import { createUserWithEmailAndPassword } from "firebase/auth"
+import { doc, setDoc } from "firebase/firestore"
+import { useToast } from "@/hooks/use-toast"
+import { ThemeToggle } from "@/components/ThemeToggle"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+
+export default function UserSignupPage() {
+  const router = useRouter()
+  const auth = useAuth()
+  const db = useFirestore()
+  const { user, isUserLoading } = useUser()
+  const { toast } = useToast()
+  
+  const [loading, setLoading] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isUserLoading && user) {
+      router.push("/")
+    }
+  }, [user, isUserLoading, router])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+
+    const normalizedEmail = email.trim().toLowerCase()
+    const cleanPassword = password
+    
+    // Client-side validation for password length
+    if (cleanPassword.length < 6) {
+      setError("Security Key must be at least 6 characters long.")
+      return
+    }
+
+    setLoading(true)
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, cleanPassword)
+      
+      await setDoc(doc(db, 'userProfiles', userCredential.user.uid), {
+        email: normalizedEmail,
+        role: 'User',
+        createdAt: new Date().toISOString()
+      })
+
+      toast({
+        title: "Registration Successful",
+        description: "Your agent identity has been created.",
+      })
+      
+      router.push("/user/dashboard")
+    } catch (error: any) {
+      console.error("SIGNUP_ERROR:", error)
+      
+      if (error.code === 'auth/email-already-in-use') {
+        setError("This email address is already associated with an account.")
+      } else if (error.code === 'auth/weak-password') {
+        setError("The security key is too weak. Please use at least 6 characters.")
+      } else if (error.code === 'auth/invalid-email') {
+        setError("The email address provided is not valid.")
+      } else {
+        setError("A system error occurred during registration. Please try again.")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (isUserLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6 relative bg-background transition-colors duration-300">
+      <div className="absolute top-8 right-8 z-50">
+        <ThemeToggle />
+      </div>
+
+      <Card className="w-full max-w-[500px] shadow-2xl border-none bg-card p-0 overflow-hidden rounded-[2rem]">
+        <div className="p-10 pb-0 text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="p-4 bg-primary/10 rounded-2xl">
+              <PhoneCall className="w-10 h-10 text-primary" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground uppercase">CallTrack</h1>
+            <p className="text-muted-foreground text-xs font-normal uppercase tracking-widest leading-relaxed">Create New Agent ID</p>
+          </div>
+        </div>
+
+        <CardContent className="p-10 pt-8 space-y-8">
+          {error && (
+            <Alert variant="destructive" className="rounded-xl bg-destructive/5 border-destructive/20 border">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs font-medium leading-relaxed">
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.2em] ml-1">Email Address</Label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input 
+                    type="email" 
+                    placeholder="agent@calltrack.com" 
+                    className="pl-12 h-12 bg-muted/30 border-none rounded-xl focus-visible:ring-primary font-normal"
+                    required 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.2em] ml-1">Security Key (Min. 6 chars)</Label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input 
+                    type="password" 
+                    placeholder="••••••••"
+                    className="pl-12 h-12 bg-muted/30 border-none rounded-xl focus-visible:ring-primary font-normal"
+                    required 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-semibold uppercase tracking-[0.2em] shadow-lg shadow-primary/20 transition-all" disabled={loading}>
+              {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <UserPlus className="w-5 h-5 mr-2" />}
+              Create Identity
+            </Button>
+          </form>
+
+          <div className="pt-6 text-center border-t space-y-4">
+            <button 
+              onClick={() => router.push('/user/login')}
+              className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors uppercase tracking-wider"
+            >
+              Already have an account? <span className="text-primary font-semibold">Sign In</span>
+            </button>
+            <p className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-[0.4em]">SECURE SESSION GATEWAY</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
